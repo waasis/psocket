@@ -1,0 +1,128 @@
+<?php
+
+/*
+*  descrition: create http request with socket
+*  author: xiaojun
+*/
+function encodeStr($data,$sep='&')
+{
+    if(!is_array($data)||empty($data)){
+        return false;
+    }
+    $encoded = "";   
+    foreach($data as $k=>$v) {
+	     $encoded .= (!empty($encoded) ? $sep : "");
+	     $encoded .=rawurlencode($k)."=".rawurlencode($v);
+    }
+    return $encoded;
+} 
+
+
+$url="http://192.168.1.111:9998/study_search.php?usr=xiaojun&id=100";
+
+$method="POST";
+
+$data = array('username'=>'小俊',
+              'pwd'=>'123456',
+	           'msg'=>'hello world!');
+
+
+$header = array('cookie'=>array('query'=>"post",'curTime'=>time())); 
+
+function httpRequest($url,$method,$header=null,$body=null){
+
+     if(!is_string($url)) {
+         printf("url should be a string.");
+	      exit;
+     }
+     
+     if(!is_string($method)||!in_array($method,array('GET',
+	                                                  'POST',
+																	  'PUT',
+																	  'DELETE',
+																	  'TRACE',
+																	  'CONNECT'))){
+         printf("the method has a error .");
+	      exit;
+     }
+
+
+     //preprocess parameter : joining together http request
+     $uinf = parse_url($url);
+     $reqfirst = sprintf("%s %s%s%s HTTP/1.1\n",
+	                      $method,
+								 $uinf['path']?$uinf['path']:"",
+								 $uinf['query']?"?":"",
+								 $uinf['query']);
+            
+     // the value of content-length is the length of message body that befor sending.
+     // if message body need encoded, the value is the length of message body that after encoding.
+     if(!empty($body)) {
+         if(is_string($body)){
+	           $reqthree = $body;
+         }elseif(is_array($body)){          
+             $reqthree = http_build_query($body);
+         }
+     }	 
+
+     $length=strlen($reqthree);
+
+     $reqsecond = "host:".$uinf['host']."\n";
+
+     if(!empty($header) && is_array($header))
+     {
+         foreach($header as $k=>$v)
+	 {
+	      if(is_array($v))
+	      {
+	          $reqsecond.=$k.":".encodeStr($v,";")."\n";   
+	      }else
+	      {
+	          $reqsecond.=$k.":".$v."\n";
+	      }
+	 }
+     }
+     
+     if($method == 'POST' && $body)
+     {
+          $reqsecond.= "content-type:application/x-www-form-urlencoded\n";
+          $reqsecond.= "content-length:".$length."\n";
+     }
+
+     $reqsecond.= "connection:close\n\n";
+
+     $httprequest=$reqfirst.$reqsecond.$reqthree;
+
+     $host = gethostbyname($uinf['host']);
+     $port = isset($uinf['port'])?$uinf['port']:80;
+
+     if(!($sock=@fsockopen($host,$port,$errno,$errstr)))
+     {
+         echo $errno,":",$errstr,"\n";
+         exit;
+     }
+     /*
+     $out="HEAD / HTTP/1.1\n";
+     $out.="Host:192.168.11.120\n";
+     $out.="connection:close\n\n";
+     */
+
+     echo $httprequest,"\n",str_repeat("--",10),"\n";
+
+     $count=fwrite($sock,$httprequest);
+      
+     $content="";
+     
+     while(!feof($sock))
+     {
+          $content.=fgets($sock,2048);
+          //break;
+     }
+     echo $content;
+     fclose($sock);
+}     
+    
+httpRequest($url,$method,$header,$data);
+
+
+?>
